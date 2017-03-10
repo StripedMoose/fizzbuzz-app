@@ -29,9 +29,9 @@ def get_reply(q):
 	reply = find_response(q)
 	return jsonify({'reply': reply})
 
-@app.route("/")
-def hello():
-    return "Bonjour!"
+@app.route("/ping")
+def pong():
+    return "poing"
 
 
 if __name__ == "__main__":
