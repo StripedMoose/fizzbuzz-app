@@ -9,3 +9,5 @@ ADD .  .
 VOLUME [ "./logs"]
 
 CMD ["python","fizzbuzz.py"]
+
+EXPOSE 5000
