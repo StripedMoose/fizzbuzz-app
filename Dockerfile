@@ -4,7 +4,7 @@ MAINTAINER Chris Smith <chris@geosmith.com>
 
 RUN pip install flask
 
-ADD .  .
+ADD src/  .
 
 VOLUME [ "./logs"]
 
