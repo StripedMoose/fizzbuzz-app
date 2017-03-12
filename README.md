@@ -66,3 +66,7 @@ Simply call
 
 and zappa will cake care of everything, handing you back an endpoint when it complete.
 
+### Status & Monitoring
+`zappa status`
+
+`zappa tail ${zappa_profile}`
