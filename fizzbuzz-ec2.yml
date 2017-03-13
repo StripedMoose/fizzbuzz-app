@@ -11,7 +11,8 @@ Parameters:
   VpcId:
     Description: VPC
     Type: String
-    Default: "vpc-eb0e9a8e"
+    Default: "vpc-8b9acfed"
+#    Default: "vpc-eb0e9a8e"
 
 
 Resources:
