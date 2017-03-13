@@ -1,0 +1,194 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "FizzBuzz App Stack with EC2/ELB"
+
+Parameters:
+
+  StackName:
+    Description: Name of the stack.
+    Type: String
+    Default: "FizzBuzzApp"
+
+  VpcId:
+    Description: VPC
+    Type: String
+    Default: "vpc-eb0e9a8e"
+
+
+Resources:
+
+  FizzBuzzSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: FizzBuzz SG
+      SecurityGroupEgress:
+        - IpProtocol: TCP
+          FromPort: 5000
+          ToPort: 5000
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: TCP
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: TCP
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: TCP
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: TCP
+          FromPort: 5000
+          ToPort: 5000
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: FizzBuzzSG
+      VpcId: { Ref: VpcId }  
+
+  ELB:
+    Type: AWS::ElasticLoadBalancing::LoadBalancer
+    Properties:
+      ConnectionDrainingPolicy:
+        Enabled: True
+        Timeout: 60  # seconds
+      CrossZone: True
+      HealthCheck:
+        HealthyThreshold: 2
+        Interval: 30
+        Target: HTTP:5000/ping
+        Timeout: 5
+        UnhealthyThreshold: 5
+      SecurityGroups:
+        - { Ref: FizzBuzzSG }
+      AvailabilityZones:
+        - "us-east-1a"
+        - "us-east-1b"        
+      Listeners:
+        - InstancePort: 5000
+          LoadBalancerPort: 80
+          Protocol: HTTP
+          InstanceProtocol: HTTP
+#      Subnets: ["subnet-e2821987", "subnet-cfae5de4"]
+
+
+  ASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AvailabilityZones:
+        - us-east-1a
+        - us-east-1b
+      DesiredCapacity: 2
+      HealthCheckGracePeriod: 30
+      HealthCheckType: ELB
+      LaunchConfigurationName: { Ref: LC }
+      LoadBalancerNames:
+        - {Ref: ELB}
+      MaxSize: 20
+      MinSize: 1
+      Tags:
+        - Key: Name
+          Value: Fizzbuzz API
+          PropagateAtLaunch: True
+      TerminationPolicies:
+        - OldestInstance 
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: 1
+        MaxBatchSize: 10
+        PauseTime: PT5M 
+        SuspendProcesses:
+          - AlarmNotification
+          - AZRebalance
+          - HealthCheck
+          - ReplaceUnhealthy
+          - ScheduledActions
+        WaitOnResourceSignals: true
+
+  LC:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    DeletionPolicy: Retain
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+         install:
+            - verifyELBHealth
+#            - runFizzBuzz
+        verifyELBHealth:
+          commands:
+            ELBHealthCheck:
+              command: { "Fn::Join" : ["", [
+                  "until [ \"$state\" == \"\\\"InService\\\"\" ]; do ",
+                  "    state=$(aws --region ", { Ref: "AWS::Region" }, " elb describe-instance-health ",
+                  "        --load-balancer-name ", { Ref: ELB },
+                  "        --instances $(curl -s http://169.254.169.254/latest/meta-data/instance-id) ",
+                  "        --query InstanceStates[0].State); ",
+                  "    sleep 10; ",
+                  "done"
+                ]]}
+#        runFizzBuzz:
+#          commands:
+#            StartFizzBuzz:
+#              command: "/usr/bin/python  /app/fizzbuzz-app/src/fizzbuzz.py &"
+    Properties:
+      IamInstanceProfile: { Ref: RootInstanceProfile }
+      ImageId: ami-9e6dc188
+      InstanceMonitoring: false
+      InstanceType: t2.micro
+      KeyName: chris-2
+      SecurityGroups:
+        - { Ref: FizzBuzzSG }
+      UserData: { "Fn::Base64" : { "Fn::Join" : ["", [
+        "#!/bin/bash -xe\n",
+
+        "/opt/aws/bin/cfn-init -v ",
+        "    --stack ", { Ref: "AWS::StackName" },
+        "    --resource LC ",
+        "    --configsets install ",
+        "    --region ", { Ref: "AWS::Region" }, "\n",
+
+        "/opt/aws/bin/cfn-signal -e $? ",
+        "    --stack ", { Ref: "AWS::StackName" },
+        "    --resource ASG ",
+        "    --region ", { Ref: "AWS::Region" }, "\n"
+       ]]}}
+
+  RootRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { "Service": [ "ec2.amazonaws.com" ] }
+            Action: [ "sts:AssumeRole" ]
+      Path: /
+
+  RootInstanceProfile:
+    Type:  AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - { Ref: RootRole }
+
+  DescribeInstanceHealthPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: DescribeInstanceHealth
+      PolicyDocument:
+        Version : "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: [ "elasticloadbalancing:DescribeInstanceHealth" ]
+            Resource: "*"
+      Roles:
+        - { Ref: RootRole }
+
+
+
+
+
+
+
+
