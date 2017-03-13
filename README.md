@@ -26,12 +26,11 @@ via docker-compose:
 ```docker-compose up```
 
 ### Querying the server
-When run via the container, the server will be available at: 
+When run via the container, the server will be available on [http://localhost:5000](http://localhost:5000)
 
-```http://localhost:5000```
 
 ## Deploying to AWS API Gateway / Lambda
-I'm using a tool called [Zappa](https://github.com/Miserlou/Zappa#basic-usage) to take care of serverless deployments.
+Fizzbuzz App uses a tool called [Zappa](https://github.com/Miserlou/Zappa#basic-usage) to take care of serverless deployments.
 
 ### Setup
 Zappa must be run in an virtualenv, so fire it up:
