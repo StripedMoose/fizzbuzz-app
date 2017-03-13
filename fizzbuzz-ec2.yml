@@ -16,6 +16,10 @@ Parameters:
 
 Resources:
 
+  # **WIDE OPEN** - for testing
+  # Need to split this to ELB & Instance SGs
+  # ELB has world -> 80
+  # Instance has ELB -> 5000 only
   FizzBuzzSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -28,6 +32,10 @@ Resources:
         - IpProtocol: TCP
           FromPort: 80
           ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: TCP
+          FromPort: 443
+          ToPort: 443
           CidrIp: 0.0.0.0/0
       SecurityGroupIngress:
         - IpProtocol: TCP
@@ -45,7 +53,7 @@ Resources:
       Tags:
         - Key: Name
           Value: FizzBuzzSG
-      VpcId: { Ref: VpcId }  
+#      VpcId: { Ref: VpcId }  
 
   ELB:
     Type: AWS::ElasticLoadBalancing::LoadBalancer
@@ -56,10 +64,10 @@ Resources:
       CrossZone: True
       HealthCheck:
         HealthyThreshold: 2
-        Interval: 30
+        Interval: 60
         Target: HTTP:5000/ping
         Timeout: 5
-        UnhealthyThreshold: 5
+        UnhealthyThreshold: 10
       SecurityGroups:
         - { Ref: FizzBuzzSG }
       AvailabilityZones:
@@ -70,8 +78,6 @@ Resources:
           LoadBalancerPort: 80
           Protocol: HTTP
           InstanceProtocol: HTTP
-#      Subnets: ["subnet-e2821987", "subnet-cfae5de4"]
-
 
   ASG:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -114,7 +120,6 @@ Resources:
         configSets:
          install:
             - verifyELBHealth
-#            - runFizzBuzz
         verifyELBHealth:
           commands:
             ELBHealthCheck:
@@ -127,33 +132,27 @@ Resources:
                   "    sleep 10; ",
                   "done"
                 ]]}
-#        runFizzBuzz:
-#          commands:
-#            StartFizzBuzz:
-#              command: "/usr/bin/python  /app/fizzbuzz-app/src/fizzbuzz.py &"
     Properties:
       IamInstanceProfile: { Ref: RootInstanceProfile }
-      ImageId: ami-9e6dc188
+      ImageId: ami-0b33d91d
       InstanceMonitoring: false
       InstanceType: t2.micro
       KeyName: chris-2
       SecurityGroups:
         - { Ref: FizzBuzzSG }
-      UserData: { "Fn::Base64" : { "Fn::Join" : ["", [
-        "#!/bin/bash -xe\n",
-
-        "/opt/aws/bin/cfn-init -v ",
-        "    --stack ", { Ref: "AWS::StackName" },
-        "    --resource LC ",
-        "    --configsets install ",
-        "    --region ", { Ref: "AWS::Region" }, "\n",
-
-        "/opt/aws/bin/cfn-signal -e $? ",
-        "    --stack ", { Ref: "AWS::StackName" },
-        "    --resource ASG ",
-        "    --region ", { Ref: "AWS::Region" }, "\n"
-       ]]}}
-
+      UserData:
+        # Install Fizzbuzz App and all its prerequisites
+        # Should clone a specific commit/tag, for now just grab latest
+        Fn::Base64: !Sub |   
+          #!/bin/bash
+          /opt/aws/bin/cfn-init -v --stack { Ref: "AWS::StackName" } --resource LC --configsets install --region { Ref: "AWS::Region" }
+          /opt/aws/bin/cfn-signal -e $? --stack { Ref: "AWS::StackName" } --resource ASG --region { Ref: "AWS::Region" }
+          yum -y update
+          yum -y install git python
+          pip install flask
+          mkdir /app && cd /app
+          git clone https://github.com/StripedMoose/fizzbuzz-app.git
+          /app/fizzbuzz-app/src/fizzbuzz.py
   RootRole:
     Type: AWS::IAM::Role
     Properties:
