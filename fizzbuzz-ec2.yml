@@ -53,7 +53,7 @@ Resources:
       Tags:
         - Key: Name
           Value: FizzBuzzSG
-#      VpcId: { Ref: VpcId }  
+      VpcId: { Ref: VpcId }  
 
   ELB:
     Type: AWS::ElasticLoadBalancing::LoadBalancer
@@ -85,7 +85,7 @@ Resources:
       AvailabilityZones:
         - us-east-1a
         - us-east-1b
-      DesiredCapacity: 2
+      DesiredCapacity: 1
       HealthCheckGracePeriod: 30
       HealthCheckType: ELB
       LaunchConfigurationName: { Ref: LC }
@@ -184,7 +184,55 @@ Resources:
       Roles:
         - { Ref: RootRole }
 
+  ScaleUpPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: PercentChangeInCapacity
+      AutoScalingGroupName: { Ref: ASG }
+      Cooldown: 300
+      ScalingAdjustment: 75
 
+  ScaleDownPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: PercentChangeInCapacity
+      AutoScalingGroupName: { Ref: ASG }
+      Cooldown: 300
+      ScalingAdjustment: -25
+
+  CPUAlarmHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: 2
+      Statistic: Average
+      Threshold: 60
+      AlarmDescription: "CPU high, scaling up"
+      Period: 60
+      AlarmActions:
+        - { Ref: ScaleUpPolicy }
+      Namespace: "AWS/EC2"
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: { Ref: ASG }
+      ComparisonOperator: GreaterThanThreshold
+      MetricName: CPUUtilization
+
+  CPUAlarmLow:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: 5
+      Statistic: Average
+      Threshold: 25
+      AlarmDescription: "CPU Falling, scaling down"
+      Period: 600
+      AlarmActions:
+       - { Ref: ScaleDownPolicy }
+      Namespace: "AWS/EC2"
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: { Ref: ASG }
+      ComparisonOperator: LessThanThreshold
+      MetricName: CPUUtilization
 
 
 
