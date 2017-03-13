@@ -69,3 +69,28 @@ and zappa will cake care of everything, handing you back an endpoint when it com
 `zappa status`
 
 `zappa tail ${zappa_profile}`
+
+## Deploying to AWS EC2 w/ELB
+For a more traiditonal deployment, there is a clouformation template "fizzbuzz-ec2.yml" provided with the distribution.  
+
+Running this tempate will create the following:
+
+* A Cloudformation stack with all resources required for the service
+* Elastic Load Balancer configured to serve port 5000
+* Autoscaling Group with CPU load based scale up & scale down policies
+* A single EC2 instance with the latest version of this code running on port 5000
+* Secrutity groups and IAM roles for the resources
+
+### Deploying
+Simply upload this file to AWS Cloudformation. The aws CLI doesn't seem to support YAML template yet, so for testing this has been done via the AWS Console.
+
+### Verification
+Once the stack is up, gather the public DNS entry for the load balancer and test:
+
+```
+curl http://${elb_endpoint}/ping
+
+curl http://${elb_endpoint}/query/${int}
+```
+
+
