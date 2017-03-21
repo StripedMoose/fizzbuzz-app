@@ -11,8 +11,8 @@ Parameters:
   VpcId:
     Description: VPC
     Type: String
-    Default: "vpc-8b9acfed"
-#    Default: "vpc-eb0e9a8e"
+    Default: "VPC-IDENTIFIER"
+#    Default: "vpc-ab012cd34"
 
 
 Resources:
@@ -138,7 +138,7 @@ Resources:
       ImageId: ami-0b33d91d
       InstanceMonitoring: false
       InstanceType: t2.micro
-      KeyName: chris-2
+      KeyName: chris-3
       SecurityGroups:
         - { Ref: FizzBuzzSG }
       UserData:
